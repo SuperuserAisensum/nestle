@@ -260,59 +260,89 @@ async function viewEventDetails(eventId) {
         const compPercent = total > 0 ? Math.round((data.compCount / total) * 100) : 0;
 
         // Update counts with percentages
-        document.getElementById('modalNestleCount').innerHTML = `
+        const nestleCountElement = document.getElementById('modalNestleCount');
+        const compCountElement = document.getElementById('modalCompCount');
+        const timestampElement = document.getElementById('modalTimestamp');
+        
+        nestleCountElement.innerHTML = `
             ${data.nestleCount}
             <span class="ml-2 px-2 py-1 text-xs font-medium bg-blue-100 text-blue-800 rounded-full">
                 ${nestlePercent}%
             </span>
         `;
         
-        document.getElementById('modalCompCount').innerHTML = `
+        compCountElement.innerHTML = `
             ${data.compCount}
             <span class="ml-2 px-2 py-1 text-xs font-medium bg-red-100 text-red-800 rounded-full">
                 ${compPercent}%
             </span>
         `;
 
+        timestampElement.textContent = formatDate(data.timestamp);
+        
         // Update product breakdown
         const detectedProducts = document.getElementById('detectedProducts');
         detectedProducts.innerHTML = '';
-
-        // Add Nestle products
-        if (data.products && data.products.nestle_products) {
-            const nestleSection = document.createElement('div');
-            nestleSection.innerHTML = `
-                <div class="font-medium text-blue-700 mb-2">Nestlé Products:</div>
-                ${Object.entries(data.products.nestle_products).map(([product, count]) => `
-                    <div class="flex justify-between items-center text-sm pl-2 mb-1">
-                        <span class="text-gray-700">${product}</span>
-                        <span class="font-medium bg-blue-50 px-2 py-1 rounded">${count}</span>
-                    </div>
-                `).join('')}
-            `;
-            detectedProducts.appendChild(nestleSection);
-        }
-
-        // Add Competitor products
-        if (data.products && data.products.competitor_detections) {
-            if (detectedProducts.children.length > 0) {
-                detectedProducts.appendChild(document.createElement('hr'));
-            }
-            
-            const compSection = document.createElement('div');
-            compSection.innerHTML = `
-                <div class="font-medium text-red-700 mt-4 mb-2">Competitor Products:</div>
-                <div class="flex justify-between items-center text-sm pl-2 mb-1">
-                    <span class="text-gray-700">Unclassified</span>
-                    <span class="font-medium bg-red-50 px-2 py-1 rounded">${data.compCount}</span>
-                </div>
-            `;
-            detectedProducts.appendChild(compSection);
-        }
-
+        if (data.products && (data.products.nestle_products || data.products.competitor_products)) {
+          // Add Nestle products
+          if (data.products.nestle_products && Object.keys(data.products.nestle_products).length > 0) {
+              const nestleSection = document.createElement('div');
+              nestleSection.innerHTML = `
+                  <div class="font-medium text-blue-700 mb-2">Nestlé Products:</div>
+                  ${Object.entries(data.products.nestle_products).map(([product, count]) => `
+                      <div class="flex justify-between items-center text-sm pl-2 mb-1">
+                          <span class="text-gray-700">${product}</span>
+                          <span class="font-medium bg-blue-50 px-2 py-1 rounded">${count}</span>
+                      </div>
+                  `).join('')}
+              `;
+              detectedProducts.appendChild(nestleSection);
+          }
+      
+          // Add Competitor products
+          if (data.products.competitor_products) {
+              if (detectedProducts.children.length > 0) {
+                  detectedProducts.appendChild(document.createElement('hr'));
+              }
+              
+              const compSection = document.createElement('div');
+              compSection.innerHTML = `<div class="font-medium text-red-700 mt-4 mb-2">Competitor Products:</div>`;
+              
+              // Check if competitor_products is array-like (has numeric indices)
+              if (Array.isArray(data.products.competitor_products) || 
+                  Object.keys(data.products.competitor_products).every(key => !isNaN(parseInt(key)))) {
+                  // It's an array or object with numeric keys - show total count
+                  const count = Array.isArray(data.products.competitor_products) ? 
+                      data.products.competitor_products.length : 
+                      Object.keys(data.products.competitor_products).length;
+                      
+                  compSection.innerHTML += `
+                      <div class="flex justify-between items-center text-sm pl-2 mb-1">
+                          <span class="text-gray-700">unclassified</span>
+                          <span class="font-medium bg-red-50 px-2 py-1 rounded">${count}</span>
+                      </div>
+                  `;
+              } else {
+                  // It's a proper object with named keys
+                  Object.entries(data.products.competitor_products).forEach(([product, count]) => {
+                      compSection.innerHTML += `
+                          <div class="flex justify-between items-center text-sm pl-2 mb-1">
+                              <span class="text-gray-700">${product}</span>
+                              <span class="font-medium bg-red-50 px-2 py-1 rounded">${count}</span>
+                          </div>
+                      `;
+                  });
+              }
+              
+              detectedProducts.appendChild(compSection);
+          }
+      } else {
+          detectedProducts.innerHTML = '<div class="text-sm text-gray-500">No detailed product data available</div>';
+      }
         // Update image
         const eventImage = document.querySelector('#eventImage img');
         if (data.image_path) {
+            // Ensure we're using the correct path
             eventImage.src = '/' + data.image_path;
             eventImage.classList.remove('hidden');
         } else {
